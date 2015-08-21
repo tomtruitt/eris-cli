@@ -9,7 +9,6 @@ import (
 	"os"
 
 	"github.com/eris-ltd/eris-cli/Godeps/_workspace/src/github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/archive"
-	//"github.com/ipfs/go-ipfs-shell"
 )
 
 func Tar(path string, compression archive.Compression) (io.ReadCloser, error) {

@@ -89,9 +89,8 @@ var filesCached = &cobra.Command{
 // cli flags
 func addFilesFlags() {
 	//maybe add flag to specify the gateway one wants to use?
-	filesExport.Flags().BoolVarP(&do.Gateway, "gateway", "", false, "put files to a hosted gateway")
-	//filesExport.Flags().BoolVarP(&do.AddDir, "dir", "", false, "add a directory recursively")
-
+	filesExport.Flags().BoolVarP(&do.Gateway, "gateway", "", false, "put files to Eris' hosted gateway")
+	filesExport.Flags().BoolVarP(&do.AddDir, "dir", "", false, "add all files from a directory (note: this will not create an ipfs object)")
 }
 
 func Get(cmd *cobra.Command, args []string) {

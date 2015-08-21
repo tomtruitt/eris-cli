@@ -215,6 +215,7 @@ func IPFSBaseAPIUrl() string {
 
 func sexyUrl() string {
 	//bootstrap was down
+	//TODO fix before merge; DNS + load balancer
 	return "http://147.75.194.73"
 }
 

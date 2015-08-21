@@ -2,6 +2,13 @@ package files
 
 import (
 	"bytes"
+	"encoding/csv"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
+	"strings"
+
 	"github.com/eris-ltd/eris-cli/definitions"
 	"github.com/eris-ltd/eris-cli/services"
 	"github.com/eris-ltd/eris-cli/util"
@@ -34,15 +41,34 @@ func PutFiles(do *definitions.Do) error {
 	}
 	logger.Infoln("IPFS is running.")
 
-	logger.Debugf("Gonna Add a file =>\t\t%s:%v\n", do.Name, do.Path)
+	if do.AddDir {
+		logger.Debugf("Gonna add the contents of a directory =>\t\t%s:%v\n", do.Name, do.Path)
+		hashes, err := exportDir(do.Name, do.Gateway)
+		if err != nil {
+			return err
+		}
+		//doesn't stdout
+		do.Result = hashes
+	} else {
+		logger.Debugf("Gonna Add a file =>\t\t%s:%v\n", do.Name, do.Path)
+		hash, err = exportFile(do.Name, do.Gateway)
+		if err != nil {
+			return err
+		}
+		do.Result = hash
+	}
+	//make string flag that defaults to sexy but can point anywhere
+	if do.Gateway {
+		logger.Debugf("Posting to ipfs.erisbootstrap.sexy")
+	} else {
+		logger.Debugf("Posting to gateway.ipfs.io")
+	}
+
 	hash, err = exportFile(do.Name, do.Gateway)
 	if err != nil {
 		return err
 	}
 	do.Result = hash
-	if do.Gateway {
-		logger.Debugf("Also pinning it to gateway (ipfs.erisbootstrap.sexy) =>\t\t%s:%v\n", do.Name, do.Path)
-	}
 
 	return nil
 }
@@ -57,6 +83,7 @@ func PinFiles(do *definitions.Do) error {
 	}
 	logger.Infoln("IPFS is running.")
 	logger.Debugf("Gonna Pin a file =>\t\t%s:%v\n", do.Name, do.Path)
+
 	hash, err = pinFile(do.Name)
 	if err != nil {
 		return err
@@ -118,6 +145,7 @@ func ListPinned(do *definitions.Do) error {
 	do.Result = hash
 	return nil
 }
+
 func importFile(hash, fileName string) error {
 	var err error
 	if logger.Level > 0 {
@@ -146,6 +174,71 @@ func exportFile(fileName string, gateway bool) (string, error) {
 	}
 
 	return hash, nil
+}
+
+func exportDir(dirName string, gateway bool) (string, error) {
+	var hashes string
+	var err error
+
+	files, err := ioutil.ReadDir(dirName)
+	if err != nil {
+		return "", fmt.Errorf("error reading directory %v\n", err)
+	}
+	gwd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("error getting working directory %v\n", err)
+	}
+	hashArray := make([]string, len(files))
+	fileNames := make([]string, len(files))
+	//the dir ends up in the loop & tries to post
+	for i := range files {
+		//hacky
+		file := path.Join(gwd, dirName, files[i].Name())
+		if logger.Level > 0 {
+			hashArray[i], err = util.SendToIPFS(file, gateway, logger.Writer)
+		} else {
+			hashArray[i], err = util.SendToIPFS(file, gateway, bytes.NewBuffer([]byte{}))
+		}
+		if err != nil {
+			return "", fmt.Errorf("error reading file %v\n", err)
+		}
+		fileNames[i] = files[i].Name()
+	}
+
+	err = writeCsv(hashArray, fileNames)
+	if err != nil {
+		return "", err
+	}
+
+	hashes = strings.Join(hashArray, "\n")
+	//do.Result doesn't stdout
+	fmt.Printf("%v\n", hashes)
+
+	return hashes, nil
+}
+
+func writeCsv(hashArray, fileNames []string) error {
+
+	strToWrite := make([][]string, len(hashArray))
+	for i := range hashArray {
+		strToWrite[i] = []string{hashArray[i], fileNames[i]}
+
+	}
+
+	csvfile, err := os.Create("ipfs_hashes.csv")
+	if err != nil {
+		return fmt.Errorf("error creating csv file:", err)
+	}
+	defer csvfile.Close()
+
+	w := csv.NewWriter(csvfile)
+	w.WriteAll(strToWrite)
+
+	if err := w.Error(); err != nil {
+		return fmt.Errorf("error writing csv: \n", err)
+	}
+
+	return nil
 }
 
 func pinFile(fileHash string) (string, error) {
