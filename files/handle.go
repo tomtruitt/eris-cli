@@ -22,8 +22,14 @@ func GetFiles(do *definitions.Do) error {
 		return err
 	}
 	logger.Infoln("IPFS is running.")
-	logger.Debugf("Gonna Import a file =>\t\t%s:%v\n", do.Name, do.Path)
-	err = importFile(do.Name, do.Path)
+	if do.CSV != "" {
+		logger.Debugf("Gonna Import the files from =>\t\t%s into %v\n", do.CSV, do.NewName)
+		err = importFiles(do.CSV, do.NewName)
+
+	} else {
+		logger.Debugf("Gonna Import a file =>\t\t%s:%v\n", do.Name, do.Path)
+		err = importFile(do.Name, do.Path)
+	}
 	if err != nil {
 		return err
 	}
@@ -148,14 +154,45 @@ func ListPinned(do *definitions.Do) error {
 
 func importFile(hash, fileName string) error {
 	var err error
+
 	if logger.Level > 0 {
-		err = util.GetFromIPFS(hash, fileName, logger.Writer)
+		err = util.GetFromIPFS(hash, fileName, "", logger.Writer)
 	} else {
-		err = util.GetFromIPFS(hash, fileName, bytes.NewBuffer([]byte{}))
+		err = util.GetFromIPFS(hash, fileName, "", bytes.NewBuffer([]byte{}))
 	}
 
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func importFiles(csvfile, newdir string) error {
+	var err error
+
+	csvFile, err := os.Open(csvfile)
+	if err != nil {
+		return fmt.Errorf("error opening csv file: %v\n", err)
+	}
+	defer csvFile.Close()
+
+	reader := csv.NewReader(csvFile)
+	rawCSVdata, err := reader.ReadAll()
+	if err != nil {
+		return fmt.Errorf("error reading csv file: %v\n", err)
+	}
+	//TODO mkdir (dirname) and dump files in there rather than in pwd
+	//file outputs tied up in GetFromIPFS
+	for _, each := range rawCSVdata {
+		if logger.Level > 0 {
+			err = util.GetFromIPFS(each[0], each[1], newdir, logger.Writer)
+		} else {
+			err = util.GetFromIPFS(each[0], each[1], newdir, bytes.NewBuffer([]byte{}))
+		}
+
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

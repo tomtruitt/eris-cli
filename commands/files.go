@@ -88,16 +88,23 @@ var filesCached = &cobra.Command{
 //--------------------------------------------------------------
 // cli flags
 func addFilesFlags() {
+
+	filesImport.Flags().StringVarP(&do.CSV, "csv", "", "", "specify a .csv with entries of format: [hash], fileName")
+	filesImport.Flags().StringVarP(&do.NewName, "dirname", "", "", "name of new directory to dump IPFS files from --csv")
 	//maybe add flag to specify the gateway one wants to use?
 	filesExport.Flags().BoolVarP(&do.Gateway, "gateway", "", false, "put files to Eris' hosted gateway")
 	filesExport.Flags().BoolVarP(&do.AddDir, "dir", "", false, "add all files from a directory (note: this will not create an ipfs object)")
 }
 
 func Get(cmd *cobra.Command, args []string) {
-	IfExit(ArgCheck(2, "eq", cmd, args))
-
-	do.Name = args[0]
-	do.Path = args[1]
+	if do.CSV == "" {
+		IfExit(ArgCheck(2, "eq", cmd, args))
+		do.Name = args[0]
+		do.Path = args[1]
+	} else {
+		do.Name = ""
+		do.Path = ""
+	}
 	IfExit(files.GetFiles(do))
 }
 
