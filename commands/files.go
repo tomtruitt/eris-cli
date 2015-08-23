@@ -97,6 +97,9 @@ func addFilesFlags() {
 
 	//command will ignore fileName but that's ok
 	filesCache.Flags().StringVarP(&do.CSV, "csv", "", "", "specify a .csv with entries of format: hash,fileName")
+
+	filesCached.Flags().BoolVarP(&do.Rm, "rma", "", false, "remove all cached files")
+	filesCached.Flags().StringVarP(&do.Hash, "rm", "", "", "remove a cached file by hash")
 }
 
 func Get(cmd *cobra.Command, args []string) {

@@ -137,6 +137,7 @@ func ListFiles(do *definitions.Do) error {
 
 func ListPinned(do *definitions.Do) error {
 	var hash string
+	var hashes string
 	doNow := definitions.NowDo()
 	doNow.Name = "ipfs"
 	err := services.EnsureRunning(doNow)
@@ -144,12 +145,23 @@ func ListPinned(do *definitions.Do) error {
 		return err
 	}
 	logger.Infoln("IPFS is running.")
-	logger.Debugf("Listing files pinned locally")
-	hash, err = listPinned()
+
+	if do.Rm {
+		logger.Infoln("Removing all cached files")
+		hashes, err = rmAllPinned()
+		do.Result = hashes
+	} else if do.Hash != "" {
+		logger.Infof("Removing %v, from cache", do.Hash)
+		hashes, err = rmPinnedByHash(do.Hash)
+		do.Result = hashes
+	} else {
+		logger.Debugf("Listing files pinned locally")
+		hash, err = listPinned()
+		do.Result = hash
+	}
 	if err != nil {
 		return err
 	}
-	do.Result = hash
 	return nil
 }
 
@@ -336,6 +348,38 @@ func listPinned() (string, error) {
 		hash, err = util.ListPinnedFromIPFS(logger.Writer)
 	} else {
 		hash, err = util.ListPinnedFromIPFS(bytes.NewBuffer([]byte{}))
+	}
+	if err != nil {
+		return "", err
+	}
+	return hash, nil
+}
+
+func rmAllPinned() (string, error) {
+
+	hashList, err := listPinned()
+	if err != nil {
+		return "", err
+	}
+
+	hashArray := strings.Split(hashList, "\n")
+	result := make([]string, len(hashArray))
+	for i, hash := range hashArray {
+		result[i], err = rmPinnedByHash(hash)
+		if err != nil {
+			return "", err
+		}
+	}
+	hashes := strings.Join(result, "\n")
+	return hashes, nil
+}
+
+func rmPinnedByHash(hash string) (string, error) {
+	var err error
+	if logger.Level > 0 {
+		hash, err = util.RemovePinnedFromIPFS(hash, logger.Writer)
+	} else {
+		hash, err = util.RemovePinnedFromIPFS(hash, bytes.NewBuffer([]byte{}))
 	}
 	if err != nil {
 		return "", err
