@@ -89,11 +89,14 @@ var filesCached = &cobra.Command{
 // cli flags
 func addFilesFlags() {
 
-	filesImport.Flags().StringVarP(&do.CSV, "csv", "", "", "specify a .csv with entries of format: [hash], fileName")
+	filesImport.Flags().StringVarP(&do.CSV, "csv", "", "", "specify a .csv with entries of format: hash,fileName")
 	filesImport.Flags().StringVarP(&do.NewName, "dirname", "", "", "name of new directory to dump IPFS files from --csv")
 	//maybe add flag to specify the gateway one wants to use?
 	filesExport.Flags().BoolVarP(&do.Gateway, "gateway", "", false, "put files to Eris' hosted gateway")
-	filesExport.Flags().BoolVarP(&do.AddDir, "dir", "", false, "add all files from a directory (note: this will not create an ipfs object)")
+	filesExport.Flags().BoolVarP(&do.AddDir, "dir", "", false, "add all files from a directory (note: this will not create an ipfs object). returns a log file (ipfs_hashes.txt to pass into `eris files get`")
+
+	//command will ignore fileName but that's ok
+	filesCache.Flags().StringVarP(&do.CSV, "csv", "", "", "specify a .csv with entries of format: hash,fileName")
 }
 
 func Get(cmd *cobra.Command, args []string) {
@@ -118,11 +121,15 @@ func Put(cmd *cobra.Command, args []string) {
 }
 
 func PinIt(cmd *cobra.Command, args []string) {
-	if len(args) != 1 {
-		cmd.Help()
-		return
+	if do.CSV == "" {
+		if len(args) != 1 {
+			cmd.Help()
+			return
+		}
+		do.Name = args[0]
+	} else {
+		do.Name = ""
 	}
-	do.Name = args[0]
 	err := files.PinFiles(do)
 	IfExit(err)
 	logger.Println(do.Result)

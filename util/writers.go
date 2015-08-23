@@ -26,6 +26,7 @@ func PostAPICall(url, fileHash string, w io.Writer) ([]byte, error) {
 	if err != nil {
 		return []byte(""), err
 	}
+	request.Close = true //for successive api calls
 	request.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	response, err := client.Do(request)

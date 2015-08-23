@@ -53,7 +53,6 @@ func PutFiles(do *definitions.Do) error {
 		if err != nil {
 			return err
 		}
-		//doesn't stdout
 		do.Result = hashes
 	} else {
 		logger.Debugf("Gonna Add a file =>\t\t%s:%v\n", do.Name, do.Path)
@@ -70,17 +69,12 @@ func PutFiles(do *definitions.Do) error {
 		logger.Debugf("Posting to gateway.ipfs.io")
 	}
 
-	hash, err = exportFile(do.Name, do.Gateway)
-	if err != nil {
-		return err
-	}
-	do.Result = hash
-
 	return nil
 }
 
 func PinFiles(do *definitions.Do) error {
 	var hash string
+	var hashes string
 	doNow := definitions.NowDo()
 	doNow.Name = "ipfs"
 	err := services.EnsureRunning(doNow)
@@ -88,13 +82,20 @@ func PinFiles(do *definitions.Do) error {
 		return err
 	}
 	logger.Infoln("IPFS is running.")
-	logger.Debugf("Gonna Pin a file =>\t\t%s:%v\n", do.Name, do.Path)
 
-	hash, err = pinFile(do.Name)
+	if do.CSV != "" {
+		logger.Debugf("Gonna Pin all the files from =>\t\t%s\n", do.CSV)
+		hashes, err = pinFiles(do.CSV)
+		do.Result = hashes
+
+	} else {
+		logger.Debugf("Gonna Pin a file =>\t\t%s:%v\n", do.Name, do.Path)
+		hash, err = pinFile(do.Name)
+		do.Result = hash
+	}
 	if err != nil {
 		return err
 	}
-	do.Result = hash
 	return nil
 }
 
@@ -248,34 +249,8 @@ func exportDir(dirName string, gateway bool) (string, error) {
 	}
 
 	hashes = strings.Join(hashArray, "\n")
-	//do.Result doesn't stdout
-	fmt.Printf("%v\n", hashes)
 
 	return hashes, nil
-}
-
-func writeCsv(hashArray, fileNames []string) error {
-
-	strToWrite := make([][]string, len(hashArray))
-	for i := range hashArray {
-		strToWrite[i] = []string{hashArray[i], fileNames[i]}
-
-	}
-
-	csvfile, err := os.Create("ipfs_hashes.csv")
-	if err != nil {
-		return fmt.Errorf("error creating csv file:", err)
-	}
-	defer csvfile.Close()
-
-	w := csv.NewWriter(csvfile)
-	w.WriteAll(strToWrite)
-
-	if err := w.Error(); err != nil {
-		return fmt.Errorf("error writing csv: \n", err)
-	}
-
-	return nil
 }
 
 func pinFile(fileHash string) (string, error) {
@@ -291,6 +266,38 @@ func pinFile(fileHash string) (string, error) {
 		return "", err
 	}
 	return hash, nil
+}
+
+func pinFiles(csvfile string) (string, error) {
+	var err error
+
+	csvFile, err := os.Open(csvfile)
+	if err != nil {
+		return "", fmt.Errorf("error opening csv file: %v\n", err)
+	}
+	defer csvFile.Close()
+
+	reader := csv.NewReader(csvFile)
+	rawCSVdata, err := reader.ReadAll()
+	if err != nil {
+		return "", fmt.Errorf("error reading csv file: %v\n", err)
+	}
+
+	hashArray := make([]string, len(rawCSVdata))
+	for i, each := range rawCSVdata {
+		if logger.Level > 0 {
+			hashArray[i], err = util.PinToIPFS(each[0], logger.Writer)
+		} else {
+			hashArray[i], err = util.PinToIPFS(each[0], bytes.NewBuffer([]byte{}))
+		}
+		if err != nil {
+			return "", err
+		}
+	}
+
+	hashes := strings.Join(hashArray, "\n")
+
+	return hashes, nil
 }
 
 func catFile(fileHash string) (string, error) {
@@ -334,4 +341,31 @@ func listPinned() (string, error) {
 		return "", err
 	}
 	return hash, nil
+}
+
+//---------------------------------------------------------
+// helpers
+
+func writeCsv(hashArray, fileNames []string) error {
+
+	strToWrite := make([][]string, len(hashArray))
+	for i := range hashArray {
+		strToWrite[i] = []string{hashArray[i], fileNames[i]}
+
+	}
+
+	csvfile, err := os.Create("ipfs_hashes.csv")
+	if err != nil {
+		return fmt.Errorf("error creating csv file:", err)
+	}
+	defer csvfile.Close()
+
+	w := csv.NewWriter(csvfile)
+	w.WriteAll(strToWrite)
+
+	if err := w.Error(); err != nil {
+		return fmt.Errorf("error writing csv: \n", err)
+	}
+
+	return nil
 }
