@@ -81,7 +81,7 @@ var filesCached = &cobra.Command{
 	Short: "Lists files cached locally.",
 	Long:  "Displays list of files cached locally.",
 	Run: func(cmd *cobra.Command, args []string) {
-		PinnedLs(cmd, args)
+		ManageCached(cmd, args)
 	},
 }
 
@@ -161,8 +161,8 @@ func ListIt(cmd *cobra.Command, args []string) {
 	logger.Println(do.Result)
 }
 
-func PinnedLs(cmd *cobra.Command, args []string) {
-	err := files.ListPinned(do)
+func ManageCached(cmd *cobra.Command, args []string) {
+	err := files.ManagePinned(do)
 	IfExit(err)
 	logger.Println(do.Result)
 }
